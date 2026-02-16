@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Düğün Para Kayıt Defteri</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    max-width: 600px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.08);
+}
+h1 {
+    text-align: center;
+}
+input, select, button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+}
+button {
+    background: #111;
+    color: white;
+    cursor: pointer;
+}
+button:hover {
+    background: #333;
+}
+.list {
+    margin-top: 15px;
+}
+.item {
+    display: flex;
+    justify-content: space-between;
+    background: #f3f3f3;
+    padding: 8px;
+    border-radius: 6px;
+    margin-top: 6px;
+    font-size: 14px;
+}
+.delete {
+    background: crimson;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+.summary {
+    margin-top: 15px;
+    font-weight: bold;
+}
+canvas {
+    margin-top: 20px;
+}
+.analysis {
+    margin-top: 15px;
+    background: #f3f3f3;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>Düğün Birikim Defteri</h1>
+
+<input type="text" id="desc" placeholder="Açıklama">
+<input type="number" id="amount" placeholder="Tutar (TL)">
+<select id="type">
+<option value="income">Gelir</option>
+<option value="expense">Gider</option>
+</select>
+<button onclick="addEntry()">Ekle</button>
+
+<h3>Hedef (TL)</h3>
+<input type="number" id="goalInput" placeholder="Örn: 300000">
+<button onclick="setGoal()">Hedef Kaydet</button>
+
+<div class="list" id="list"></div>
+
+<div class="summary" id="summary"></div>
+
+<canvas id="chart"></canvas>
+
+<div class="analysis" id="analysis"></div>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("weddingData")) || [];
+let goal = localStorage.getItem("weddingGoal") || 0;
+
+function saveData() {
+    localStorage.setItem("weddingData", JSON.stringify(data));
+}
+
+function addEntry() {
+    const desc = document.getElementById("desc").value;
+    const amount = parseFloat(document.getElementById("amount").value);
+    const type = document.getElementById("type").value;
+
+    if (!desc || !amount) return;
+
+    data.push({desc, amount, type});
+    saveData();
+    render();
+}
+
+function deleteEntry(index) {
+    data.splice(index,1);
+    saveData();
+    render();
+}
+
+function setGoal() {
+    goal = parseFloat(document.getElementById("goalInput").value);
+    localStorage.setItem("weddingGoal", goal);
+    render();
+}
+
+function calculate() {
+    let income = 0;
+    let expense = 0;
+
+    data.forEach(item=>{
+        if(item.type==="income") income+=item.amount;
+        else expense+=item.amount;
+    });
+
+    return {income, expense, balance: income-expense};
+}
+
+function render() {
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    data.forEach((item,index)=>{
+        list.innerHTML += `
+        <div class="item">
+            ${item.desc} - ${item.amount} TL (${item.type==="income"?"Gelir":"Gider"})
+            <button class="delete" onclick="deleteEntry(${index})">Sil</button>
+        </div>`;
+    });
+
+    const calc = calculate();
+    document.getElementById("summary").innerHTML =
+    `Toplam Gelir: ${calc.income} TL | Toplam Gider: ${calc.expense} TL | Kalan: ${calc.balance} TL`;
+
+    renderChart(calc.income, calc.expense);
+    renderAnalysis(calc.balance);
+}
+
+let chart;
+function renderChart(income, expense) {
+    const ctx = document.getElementById("chart").getContext("2d");
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(ctx,{
+        type:"pie",
+        data:{
+            labels:["Gelir","Gider"],
+            datasets:[{
+                data:[income, expense],
+                backgroundColor:["#4CAF50","#F44336"]
+            }]
+        }
+    });
+}
+
+function renderAnalysis(balance){
+    let text = "";
+    if(goal>0){
+        let percent = ((balance/goal)*100).toFixed(1);
+        if(balance>=goal){
+            text = `Hedefe ulaştınız 🎉 Fazla: ${balance-goal} TL`;
+        }else{
+            text = `Hedefin %${percent}'ine ulaştınız. Kalan: ${goal-balance} TL`;
+        }
+    }else{
+        text = "Henüz hedef belirlenmedi.";
+    }
+    document.getElementById("analysis").innerHTML = text;
+}
+
+render();
+</script>
+
+</body>
+</html>
